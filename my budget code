@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Monthly Finance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .table-input, .table-select {
+            @apply w-full bg-transparent p-2 border border-transparent focus:border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 transition;
+        }
+        .amount-input {
+            @apply text-right;
+        }
+        .action-btn {
+            @apply bg-pink-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-pink-600 transition duration-300 ease-in-out shadow;
+        }
+        .secondary-btn {
+             @apply bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out;
+        }
+        .select-as-button {
+            @apply appearance-none bg-no-repeat;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem; /* Make space for the icon */
+        }
+        .select-as-secondary-button {
+            @apply appearance-none bg-no-repeat;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%234b5563' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        .summary-value {
+            @apply font-bold text-2xl;
+        }
+        .summary-label {
+            @apply text-gray-500;
+        }
+        h2 {
+            @apply text-2xl font-bold text-gray-800 border-b-2 border-pink-200 pb-2 mb-4;
+        }
+        h3 {
+            @apply text-xl font-semibold text-gray-700 mt-6 mb-3;
+        }
+        #error-box {
+            @apply bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6 hidden;
+        }
+        #month-selector-container, #year-selector-container, #detailed-filter-container {
+            @apply bg-white p-4 rounded-xl shadow-md mb-8 flex items-center justify-center gap-4 flex-wrap;
+        }
+        #month-selector, #year-selector, .filter-select {
+            @apply border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring-pink-500 font-semibold text-lg p-2;
+        }
+        .client-link {
+            @apply text-pink-600;
+        }
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print {
+                display: none !important;
+            }
+            #monthly-view, #yearly-view, #detailed-view {
+                display: block !important;
+            }
+             .printable-card {
+                box-shadow: none;
+                border: 1px solid #e5e7eb;
+             }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+        <header class="text-center mb-8 no-print">
+            <h1 class="text-4xl font-extrabold text-gray-900">Finance Tracker</h1>
+            <p class="text-lg text-gray-500">Ashley Stephens Makeup</p>
+        </header>
+
+        <!-- Error Display -->
+        <div id="error-box" class="no-print">
+            <span id="error-message"></span>
+        </div>
+
+        <!-- View Toggle Buttons -->
+        <div class="text-center mb-8 space-x-4 no-print">
+            <button id="view-monthly-btn" class="action-btn">Monthly View</button>
+            <button id="view-yearly-btn" class="secondary-btn">Yearly Summary View</button>
+            <button id="view-detailed-btn" class="secondary-btn">Detailed View</button>
+            <button id="view-clients-btn" class="secondary-btn">Clients</button>
+        </div>
+
+        <!-- Monthly View -->
+        <div id="monthly-view">
+            <section id="month-selector-container">
+                <label for="month-selector" class="text-lg font-bold text-gray-700">Tracking Month:</label>
+                <input type="month" id="month-selector">
+            </section>
+
+            <section id="summary" class="bg-white p-6 rounded-xl shadow-md mb-8">
+                <h2 class="!border-none !pb-0 !mb-6">Monthly Summary</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                    <div>
+                        <p class="summary-label">Total Income</p>
+                        <p id="summary-income" class="summary-value text-green-500">$0.00</p>
+                    </div>
+                    <div>
+                        <p class="summary-label">Total Expenses</p>
+                        <p id="summary-expenses" class="summary-value text-red-500">$0.00</p>
+                    </div>
+                    <div>
+                        <p class="summary-label">Net Profit / Loss</p>
+                        <p id="summary-net" class="summary-value text-blue-500">$0.00</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="income" class="bg-white p-6 rounded-xl shadow-md mb-8">
+                <h2>I. Income</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left"><thead class="border-b-2 border-gray-200"><tr><th class="p-2 w-[15%]">Date</th><th class="p-2 w-[20%]">Client Name</th><th class="p-2 w-[15%]">Service Type</th><th class="p-2 w-[10%] text-right">Amount</th><th class="p-2 w-[15%]">Pay Method</th><th class="p-2 w-[10%]">Status</th><th class="p-2 w-[15%]">Notes</th><th class="p-2"></th></tr></thead><tbody id="income-table-body"></tbody></table>
+                </div>
+                <div class="mt-4 text-center"><button onclick="addEntry('income')" class="action-btn">+ Add Income</button></div>
+            </section>
+
+            <section id="expenses" class="bg-white p-6 rounded-xl shadow-md">
+                <h2>II. Expenses</h2>
+                 <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="border-b-2 border-gray-200">
+                            <tr>
+                                <th class="p-3 w-[15%]">Date</th>
+                                <th class="p-3 w-[20%]">Vendor/Store</th>
+                                <th class="p-3 w-[25%]">Category</th>
+                                <th class="p-3 w-[15%] text-right">Amount</th>
+                                <th class="p-3 w-[25%]">Notes</th>
+                                <th class="p-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenses-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="mt-4 text-center"><button onclick="addEntry('expenses')" class="action-btn">+ Add Expense</button></div>
+            </section>
+        </div>
+
+        <!-- Yearly View -->
+        <div id="yearly-view" class="hidden">
+            <section id="year-selector-container" class="no-print">
+                <label for="year-selector" class="text-lg font-bold text-gray-700">Tracking Year:</label>
+                <select id="year-selector"></select>
+                <select id="export-yearly-select" class="action-btn select-as-button">
+                    <option>Export...</option>
+                    <option value="print">Export to PDF</option>
+                    <option value="csv">Export to CSV</option>
+                </select>
+            </section>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2">
+                    <section class="bg-white p-6 rounded-xl shadow-md printable-card">
+                        <h2 id="yearly-summary-title">Yearly Summary View</h2>
+                        <div class="overflow-x-auto">
+                            <table id="yearly-summary-table" class="w-full text-left">
+                                <thead class="border-b-2 border-gray-200">
+                                    <tr>
+                                        <th class="p-3 font-semibold">Month</th>
+                                        <th class="p-3 font-semibold text-right">Income</th>
+                                        <th class="p-3 font-semibold text-right">Expenses</th>
+                                        <th class="p-3 font-semibold text-right">Net Profit</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="yearly-summary-body"></tbody>
+                                <tfoot class="border-t-2 border-gray-300 font-bold text-lg">
+                                    <tr>
+                                        <td class="p-4">Totals</td>
+                                        <td id="yearly-total-income" class="p-4 text-right">$0.00</td>
+                                        <td id="yearly-total-expenses" class="p-4 text-right">$0.00</td>
+                                        <td id="yearly-total-net" class="p-4 text-right">$0.00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                         <div class="mt-8">
+                            <canvas id="incomeExpenseChart"></canvas>
+                        </div>
+                    </section>
+                </div>
+                <div class="space-y-8">
+                    <section class="bg-white p-6 rounded-xl shadow-md printable-card">
+                        <h2 id="yearly-category-title">Expense Breakdown</h2>
+                        <div class="overflow-x-auto">
+                           <canvas id="expensePieChart"></canvas>
+                        </div>
+                        <div class="mt-6">
+                             <table id="yearly-category-table" class="w-full text-left">
+                                <thead class="border-b-2 border-gray-200">
+                                    <tr>
+                                        <th class="p-3 font-semibold">Category</th>
+                                        <th class="p-3 font-semibold text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="yearly-category-summary-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                     <section class="bg-white p-6 rounded-xl shadow-md printable-card no-print">
+                        <h2>Tax Estimation</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <p class="summary-label">Total Estimated Tax (30%)</p>
+                                <p id="estimated-yearly-tax" class="summary-value text-gray-700">$0.00</p>
+                            </div>
+                            <div>
+                                <p class="summary-label">Estimated Quarterly Payment</p>
+                                <p id="estimated-quarterly-payment" class="summary-value text-gray-700">$0.00</p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-4">*This is a general estimate for Fed SE, Fed Income, & LA State taxes. Consult a tax professional for financial advice.</p>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed View -->
+        <div id="detailed-view" class="hidden">
+            <section id="detailed-filter-container">
+                <label class="text-lg font-bold text-gray-700">Filter by:</label>
+                <select id="filter-type-select" class="filter-select">
+                    <option value="none">Select Type...</option>
+                    <option value="income">Income by Client</option>
+                    <option value="expenses">Expenses by Category</option>
+                </select>
+                <select id="filter-value-select" class="filter-select" disabled>
+                    <option>Select Value...</option>
+                </select>
+                 <select id="export-detailed-select" class="secondary-btn select-as-secondary-button">
+                    <option>Export...</option>
+                    <option value="print">Export to PDF</option>
+                    <option value="csv">Export to CSV</option>
+                </select>
+            </section>
+            <section class="bg-white p-6 rounded-xl shadow-md printable-card">
+                <h2 id="detailed-title">Detailed Report</h2>
+                <div class="overflow-x-auto">
+                    <table id="detailed-report-table" class="w-full text-left">
+                        <thead id="detailed-table-head"></thead>
+                        <tbody id="detailed-table-body"></tbody>
+                        <tfoot class="border-t-2 border-gray-300 font-bold text-lg">
+                            <tr>
+                                <td id="detailed-total-label" class="p-4" colspan="2">Total</td>
+                                <td id="detailed-total-amount" class="p-4 text-right">$0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- Clients View -->
+        <div id="clients-view" class="hidden">
+             <section class="bg-white p-6 rounded-xl shadow-md">
+                <h2>Client Management</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="border-b-2 border-gray-200">
+                            <tr>
+                                <th class="p-3 w-1/4">Name</th>
+                                <th class="p-3 w-1/4">Phone</th>
+                                <th class="p-3 w-1/4">Email</th>
+                                <th class="p-3 w-1/4">Notes</th>
+                                <th class="p-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="mt-4 text-center">
+                    <button onclick="addClient()" class="action-btn">+ Add Client</button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer class="text-center text-gray-500 text-sm py-8 no-print">
+        <p>Your unique Tracker ID is: c_a26af25b20c08bb3_interactive_makeup_artist_tracker-415</p>
+    </footer>
+
+    <script type="module">
+        // --- Firebase SDK Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, deleteDoc, updateDoc, onSnapshot, serverTimestamp, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- App State ---
+        let db, auth;
+        let currentMonth;
+        let incomeUnsubscribe, expensesUnsubscribe, clientsUnsubscribe;
+        let localData = { income: [], expenses: [], clients: [] };
+        let expensePieChart, incomeExpenseChart;
+        const expenseCategories = [ "Select a Category...", "Advertising", "Bank Fees", "Commissions & Fees", "Insurance", "Kit Supplies", "Legal & Professional", "Meals & Entertainment", "Mileage/Gas", "Office Supplies", "Phone & Internet", "Professional Development", "Travel (Airfare, Hotel)", "Other" ];
+        const paymentMethods = ["Cash", "Credit Card", "Venmo", "Zelle", "Check", "Other"];
+        const paymentStatuses = ["Paid", "Unpaid", "Deposit Paid"];
+
+        // --- DOM Elements ---
+        const monthSelector = document.getElementById('month-selector');
+        const yearSelector = document.getElementById('year-selector');
+        const monthlyView = document.getElementById('monthly-view');
+        const yearlyView = document.getElementById('yearly-view');
+        const detailedView = document.getElementById('detailed-view');
+        const clientsView = document.getElementById('clients-view');
+        const viewMonthlyBtn = document.getElementById('view-monthly-btn');
+        const viewYearlyBtn = document.getElementById('view-yearly-btn');
+        const viewDetailedBtn = document.getElementById('view-detailed-btn');
+        const viewClientsBtn = document.getElementById('view-clients-btn');
+        const filterTypeSelect = document.getElementById('filter-type-select');
+        const filterValueSelect = document.getElementById('filter-value-select');
+        const exportYearlySelect = document.getElementById('export-yearly-select');
+        const exportDetailedSelect = document.getElementById('export-detailed-select');
+
+        // --- Firebase Config and Init ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        function showError(message) {
+            const errorBox = document.getElementById('error-box');
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = message;
+            errorBox.style.display = 'block';
+        }
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (e) {
+            console.error("Error initializing Firebase:", e);
+            showError("Could not connect to the database. Please check the console for errors.");
+        }
+
+        // --- View Toggling & Printing ---
+        function showView(viewToShow) {
+            [monthlyView, yearlyView, detailedView, clientsView].forEach(view => view.classList.add('hidden'));
+            [viewMonthlyBtn, viewYearlyBtn, viewDetailedBtn, viewClientsBtn].forEach(btn => btn.classList.replace('action-btn', 'secondary-btn'));
+            
+            if (viewToShow === 'monthly') {
+                monthlyView.classList.remove('hidden');
+                viewMonthlyBtn.classList.replace('secondary-btn', 'action-btn');
+            } else if (viewToShow === 'yearly') {
+                yearlyView.classList.remove('hidden');
+                viewYearlyBtn.classList.replace('secondary-btn', 'action-btn');
+                loadYearlySummary();
+            } else if (viewToShow === 'detailed') {
+                detailedView.classList.remove('hidden');
+                viewDetailedBtn.classList.replace('secondary-btn', 'action-btn');
+                loadDetailedViewFilters();
+            } else if (viewToShow === 'clients') {
+                clientsView.classList.remove('hidden');
+                viewClientsBtn.classList.replace('secondary-btn', 'action-btn');
+            }
+        }
+
+        viewMonthlyBtn.addEventListener('click', () => showView('monthly'));
+        viewYearlyBtn.addEventListener('click', () => showView('yearly'));
+        viewDetailedBtn.addEventListener('click', () => showView('detailed'));
+        viewClientsBtn.addEventListener('click', () => showView('clients'));
+        yearSelector.addEventListener('change', () => {
+            if (!yearlyView.classList.contains('hidden')) loadYearlySummary();
+            if (!detailedView.classList.contains('hidden')) loadDetailedViewFilters();
+        });
+        
+        filterTypeSelect.addEventListener('change', loadDetailedViewFilters);
+        filterValueSelect.addEventListener('change', renderDetailedReport);
+        
+        exportYearlySelect.addEventListener('change', (e) => {
+            if (e.target.value === 'print') window.print();
+            if (e.target.value === 'csv') exportTableToCsv('yearly-summary-table', `yearly-summary-${yearSelector.value}.csv`);
+            e.target.value = e.target.options[0].value;
+        });
+        exportDetailedSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'print') window.print();
+            if (e.target.value === 'csv') exportTableToCsv('detailed-report-table', `detailed-report-${filterValueSelect.value}.csv`);
+            e.target.value = e.target.options[0].value;
+        });
+
+        // --- Month/Year Handling ---
+        function populateYearSelector() {
+            const currentYear = new Date().getFullYear();
+            const startYear = 2020;
+            for (let year = currentYear + 1; year >= startYear; year--) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelector.appendChild(option);
+            }
+        }
+
+        function handleMonthChange(newMonth) {
+            if (newMonth === currentMonth || !auth.currentUser) return;
+            currentMonth = newMonth;
+            
+            localData = { income: [], expenses: [], clients: [] };
+            document.getElementById('income-table-body').innerHTML = '';
+            document.getElementById('expenses-table-body').innerHTML = '';
+            updateAllTotals();
+
+            setupMonthlyListeners();
+        }
+        
+        monthSelector.addEventListener('change', (event) => handleMonthChange(event.target.value));
+
+        // --- Authentication ---
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                populateYearSelector();
+                if (!currentMonth) {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                    currentMonth = `${year}-${month}`;
+                    monthSelector.value = currentMonth;
+                    yearSelector.value = year;
+                }
+                setupMonthlyListeners();
+                setupClientsListener();
+            } else {
+                 if (typeof __initial_auth_token !== 'undefined') {
+                    signInWithCustomToken(auth, __initial_auth_token).catch(error => console.error("Custom token sign-in failed:", error));
+                } else {
+                    signInAnonymously(auth).catch(error => console.error("Anonymous sign-in failed:", error));
+                }
+            }
+        });
+
+        // --- Firestore Path Helpers ---
+        function getMonthlyCollectionRef(type, monthStr) {
+            if (!monthStr || !appId) return null;
+            const collectionName = `${type}_${monthStr}`;
+            return collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+        }
+        function getClientsCollectionRef() {
+            return collection(db, 'artifacts', appId, 'public', 'data', 'clients');
+        }
+
+        // --- Real-time Listeners ---
+        function setupMonthlyListeners() {
+            if (!db || !auth.currentUser) return;
+            if (incomeUnsubscribe) incomeUnsubscribe();
+            if (expensesUnsubscribe) expensesUnsubscribe();
+            incomeUnsubscribe = listenForUpdates('income', 'income-table-body', renderIncomeTable);
+            expensesUnsubscribe = listenForUpdates('expenses', 'expenses-table-body', renderExpensesTable);
+        }
+        
+        function setupClientsListener() {
+            if (clientsUnsubscribe) clientsUnsubscribe();
+            clientsUnsubscribe = listenForUpdates('clients', 'clients-table-body', renderClientsTable);
+        }
+
+        function listenForUpdates(type, tableBodyId, renderFn) {
+            const colRef = type === 'clients' ? getClientsCollectionRef() : getMonthlyCollectionRef(type, currentMonth);
+            if (!colRef) return () => {};
+            
+            return onSnapshot(query(colRef), (snapshot) => {
+                localData[type] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderFn(tableBodyId);
+                if (type !== 'clients') updateAllTotals();
+            }, (error) => console.error(`Error listening to ${type} collection:`, error));
+        }
+
+        // --- Yearly Summary Logic ---
+        async function loadYearlySummary() {
+            const year = yearSelector.value;
+            if (!year || !db) return;
+            document.getElementById('yearly-summary-title').textContent = `Yearly Summary View for ${year}`;
+            document.getElementById('yearly-category-title').textContent = `Expense Breakdown for ${year}`;
+            
+            const summaryBody = document.getElementById('yearly-summary-body');
+            const categoryBody = document.getElementById('yearly-category-summary-body');
+            summaryBody.innerHTML = `<tr><td colspan="4" class="text-center p-8">Loading summary...</td></tr>`;
+            categoryBody.innerHTML = `<tr><td colspan="2" class="text-center p-8">Loading...</td></tr>`;
+
+            const { yearlyTotalIncome, yearlyTotalExpenses, categoryTotals, monthlyIncomeData, monthlyExpenseData } = await fetchYearlyData(year);
+
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            let monthTableHTML = '';
+            for(let i=0; i<12; i++) {
+                const monthNet = monthlyIncomeData[i] - monthlyExpenseData[i];
+                monthTableHTML += `<tr class="border-b border-gray-100"><td class="p-3">${monthNames[i]}</td><td class="p-3 text-right">${formatCurrency(monthlyIncomeData[i])}</td><td class="p-3 text-right">${formatCurrency(monthlyExpenseData[i])}</td><td class="p-3 text-right ${monthNet >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(monthNet)}</td></tr>`;
+            }
+
+            const yearlyTotalNet = yearlyTotalIncome - yearlyTotalExpenses;
+            summaryBody.innerHTML = monthTableHTML;
+            document.getElementById('yearly-total-income').textContent = formatCurrency(yearlyTotalIncome);
+            document.getElementById('yearly-total-expenses').textContent = formatCurrency(yearlyTotalExpenses);
+            const yearlyNetEl = document.getElementById('yearly-total-net');
+            yearlyNetEl.textContent = formatCurrency(yearlyTotalNet);
+            yearlyNetEl.className = `p-4 text-right ${yearlyTotalNet >= 0 ? 'text-green-600' : 'text-red-600'}`;
+
+            let categoryTableHTML = '';
+            const sortedCategories = Object.keys(categoryTotals).sort();
+            sortedCategories.forEach(category => {
+                categoryTableHTML += `<tr class="border-b border-gray-100"><td class="p-3">${category}</td><td class="p-3 text-right">${formatCurrency(categoryTotals[category])}</td></tr>`;
+            });
+            categoryBody.innerHTML = categoryTableHTML || `<tr><td colspan="2" class="text-center p-8">No expenses recorded.</td></tr>`;
+
+            renderExpensePieChart(categoryTotals);
+            renderIncomeExpenseBarChart(monthNames, monthlyIncomeData, monthlyExpenseData);
+            
+            const estimatedTaxRate = 0.30;
+            const totalTax = yearlyTotalNet > 0 ? yearlyTotalNet * estimatedTaxRate : 0;
+            const quarterlyPayment = totalTax / 4;
+            document.getElementById('estimated-yearly-tax').textContent = formatCurrency(totalTax);
+            document.getElementById('estimated-quarterly-payment').textContent = formatCurrency(quarterlyPayment);
+        }
+
+        // --- Detailed View Logic ---
+        async function loadDetailedViewFilters() {
+            const filterType = filterTypeSelect.value;
+            filterValueSelect.innerHTML = '<option>Loading...</option>';
+            filterValueSelect.disabled = true;
+            document.getElementById('detailed-table-body').innerHTML = '';
+            document.getElementById('detailed-total-amount').textContent = formatCurrency(0);
+
+            if (filterType === 'none') {
+                filterValueSelect.innerHTML = '<option>Select Value...</option>';
+                return;
+            }
+
+            const year = yearSelector.value;
+            const allYearData = await fetchAllYearData(year, filterType);
+            
+            let uniqueValues = new Set();
+            if (filterType === 'income') {
+                allYearData.forEach(doc => doc.clientName && uniqueValues.add(doc.clientName));
+            } else if (filterType === 'expenses') {
+                allYearData.forEach(doc => doc.category && doc.category !== "Select a Category..." && uniqueValues.add(doc.category));
+            }
+
+            filterValueSelect.innerHTML = '<option value="none">Select Value...</option>';
+            [...uniqueValues].sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                filterValueSelect.appendChild(option);
+            });
+            filterValueSelect.disabled = false;
+        }
+
+        async function renderDetailedReport() {
+            const filterType = filterTypeSelect.value;
+            const filterValue = filterValueSelect.value;
+            const year = yearSelector.value;
+            
+            const tableHead = document.getElementById('detailed-table-head');
+            const tableBody = document.getElementById('detailed-table-body');
+            const totalLabel = document.getElementById('detailed-total-label');
+            const totalAmount = document.getElementById('detailed-total-amount');
+
+            tableBody.innerHTML = '';
+            totalAmount.textContent = formatCurrency(0);
+            
+            if (filterValue === 'none') return;
+
+            const allYearData = await fetchAllYearData(year, filterType);
+            let total = 0;
+
+            if (filterType === 'income') {
+                tableHead.innerHTML = `<tr><th class="p-3">Date</th><th class="p-3">Service</th><th class="p-3 text-right">Amount</th></tr>`;
+                totalLabel.colSpan = 2;
+                const filteredData = allYearData.filter(doc => doc.clientName === filterValue);
+                let tableHTML = '';
+                filteredData.forEach(doc => {
+                    tableHTML += `<tr class="border-b border-gray-100"><td class="p-3">${doc.date}</td><td class="p-3">${doc.serviceType}</td><td class="p-3 text-right">${formatCurrency(doc.amount || 0)}</td></tr>`;
+                    total += Number(doc.amount || 0);
+                });
+                tableBody.innerHTML = tableHTML;
+            } else if (filterType === 'expenses') {
+                tableHead.innerHTML = `<tr><th class="p-3">Date</th><th class="p-3">Vendor</th><th class="p-3 text-right">Amount</th></tr>`;
+                totalLabel.colSpan = 2;
+                const filteredData = allYearData.filter(doc => doc.category === filterValue);
+                let tableHTML = '';
+                filteredData.forEach(doc => {
+                    tableHTML += `<tr class="border-b border-gray-100"><td class="p-3">${doc.date}</td><td class="p-3">${doc.vendor}</td><td class="p-3 text-right">${formatCurrency(doc.amount || 0)}</td></tr>`;
+                    total += Number(doc.amount || 0);
+                });
+                tableBody.innerHTML = tableHTML;
+            }
+            totalAmount.textContent = formatCurrency(total);
+        }
+
+        // --- Data Fetching Helpers ---
+        async function fetchAllYearData(year, type) {
+            let allData = [];
+            for (let i = 0; i < 12; i++) {
+                const monthStr = `${year}-${(i + 1).toString().padStart(2, '0')}`;
+                const collectionRef = getMonthlyCollectionRef(type, monthStr);
+                const snapshot = await getDocs(collectionRef);
+                snapshot.forEach(doc => allData.push(doc.data()));
+            }
+            return allData;
+        }
+        
+        async function fetchYearlyData(year) {
+            let yearlyTotalIncome = 0, yearlyTotalExpenses = 0;
+            let categoryTotals = {}, monthlyIncomeData = [], monthlyExpenseData = [];
+
+            for (let i = 0; i < 12; i++) {
+                const monthStr = `${year}-${(i + 1).toString().padStart(2, '0')}`;
+                const incomeRef = getMonthlyCollectionRef('income', monthStr);
+                const expensesRef = getMonthlyCollectionRef('expenses', monthStr);
+                const [incomeSnap, expensesSnap] = await Promise.all([getDocs(incomeRef), getDocs(expensesRef)]);
+                
+                const monthIncome = incomeSnap.docs.reduce((sum, doc) => sum + Number(doc.data().amount || 0), 0);
+                monthlyIncomeData.push(monthIncome);
+                
+                let monthExpenses = 0;
+                expensesSnap.docs.forEach(doc => {
+                    const expense = doc.data();
+                    const amount = Number(expense.amount || 0);
+                    const category = expense.category || 'Other';
+                    monthExpenses += amount;
+                    if (category !== "Select a Category...") {
+                        categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+                    }
+                });
+                monthlyExpenseData.push(monthExpenses);
+                
+                yearlyTotalIncome += monthIncome;
+                yearlyTotalExpenses += monthExpenses;
+            }
+            return { yearlyTotalIncome, yearlyTotalExpenses, categoryTotals, monthlyIncomeData, monthlyExpenseData };
+        }
+        
+        function renderExpensePieChart(data) {
+            const ctx = document.getElementById('expensePieChart').getContext('2d');
+            if(expensePieChart) expensePieChart.destroy();
+            expensePieChart = new Chart(ctx, {
+                type: 'pie',
+                data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#fecdd3', '#fbcfe8', '#e9d5ff', '#d1d5db', '#c7d2fe', '#bfdbfe', '#bae6fd', '#a5f3fc', '#99f6e4', '#a7f3d0', '#bbf7d0', '#fde68a', '#fed7aa'], hoverOffset: 4 }] },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+        }
+
+        function renderIncomeExpenseBarChart(labels, incomeData, expenseData) {
+            const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
+            if(incomeExpenseChart) incomeExpenseChart.destroy();
+            incomeExpenseChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: labels, datasets: [ { label: 'Income', data: incomeData, backgroundColor: 'rgba(34, 197, 94, 0.6)' }, { label: 'Expenses', data: expenseData, backgroundColor: 'rgba(239, 68, 68, 0.6)' } ] },
+                options: { scales: { y: { beginAtZero: true } }, responsive: true }
+            });
+        }
+
+        // --- DOM Rendering ---
+        function renderIncomeTable(tableBodyId) {
+            const tableBody = document.getElementById(tableBodyId);
+            tableBody.innerHTML = '';
+            const sortedData = localData.income.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+            sortedData.forEach(item => {
+                const row = tableBody.insertRow();
+                row.id = item.id;
+                const paymentMethodOptions = paymentMethods.map(m => `<option value="${m}" ${item.paymentMethod === m ? 'selected' : ''}>${m}</option>`).join('');
+                const paymentStatusOptions = paymentStatuses.map(s => `<option value="${s}" ${item.paymentStatus === s ? 'selected' : ''}>${s}</option>`).join('');
+                row.innerHTML = `<td><input type="date" class="table-input" value="${item.date || ''}" onchange="updateEntry('income', '${item.id}', 'date', this.value)"></td><td><input type="text" placeholder="Client Name" class="table-input" value="${item.clientName || ''}" onchange="updateEntry('income', '${item.id}', 'clientName', this.value)"></td><td><input type="text" placeholder="e.g., Bridal" class="table-input" value="${item.serviceType || ''}" onchange="updateEntry('income', '${item.id}', 'serviceType', this.value)"></td><td><input type="text" placeholder="$0.00" class="table-input amount-input" value="${formatCurrency(item.amount || 0)}" onfocus="revertToNumber(this, ${item.amount || 0})" onblur="formatAndUpdate(this, 'income', '${item.id}')"></td><td><select class="table-select" onchange="updateEntry('income', '${item.id}', 'paymentMethod', this.value)">${paymentMethodOptions}</select></td><td><select class="table-select" onchange="updateEntry('income', '${item.id}', 'paymentStatus', this.value)">${paymentStatusOptions}</select></td><td><input type="text" placeholder="Notes" class="table-input" value="${item.notes || ''}" onchange="updateEntry('income', '${item.id}', 'notes', this.value)"></td><td><button class="text-red-500 font-bold text-xl hover:text-red-700 transition px-2" onclick="deleteEntry('income', '${item.id}')">&times;</button></td>`;
+            });
+        }
+        
+        function renderExpensesTable(tableBodyId) {
+            const tableBody = document.getElementById(tableBodyId);
+            tableBody.innerHTML = '';
+            const sortedData = localData.expenses.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+            sortedData.forEach(item => {
+                const row = tableBody.insertRow();
+                row.id = item.id;
+                const categoryOptions = expenseCategories.map(cat => `<option value="${cat}" ${item.category === cat ? 'selected' : ''}>${cat}</option>`).join('');
+                row.innerHTML = `<td><input type="date" class="table-input" value="${item.date || ''}" onchange="updateEntry('expenses', '${item.id}', 'date', this.value)"></td><td><input type="text" placeholder="Vendor/Store" class="table-input" value="${item.vendor || ''}" onchange="updateEntry('expenses', '${item.id}', 'vendor', this.value)"></td><td><select class="table-select" onchange="updateEntry('expenses', '${item.id}', 'category', this.value)">${categoryOptions}</select></td><td><input type="text" placeholder="$0.00" class="table-input amount-input" value="${formatCurrency(item.amount || 0)}" onfocus="revertToNumber(this, ${item.amount || 0})" onblur="formatAndUpdate(this, 'expenses', '${item.id}')"></td><td><input type="text" placeholder="Notes" class="table-input" value="${item.notes || ''}" onchange="updateEntry('expenses', '${item.id}', 'notes', this.value)"></td><td><button class="text-red-500 font-bold text-xl hover:text-red-700 transition px-2" onclick="deleteEntry('expenses', '${item.id}')">&times;</button></td>`;
+            });
+        }
+        
+        function renderClientsTable(tableBodyId) {
+            const tableBody = document.getElementById(tableBodyId);
+            tableBody.innerHTML = '';
+            const sortedData = localData.clients.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            sortedData.forEach(item => {
+                const row = tableBody.insertRow();
+                row.id = item.id;
+                row.innerHTML = `<td><a href="#" class="client-link hover:underline" onclick="viewClientReport('${item.name}')">${item.name || ''}</a></td><td><input type="text" class="table-input" value="${item.phone || ''}" onchange="updateClient('${item.id}', 'phone', this.value)"></td><td><input type="text" class="table-input" value="${item.email || ''}" onchange="updateClient('${item.id}', 'email', this.value)"></td><td><input type="text" class="table-input" value="${item.notes || ''}" onchange="updateClient('${item.id}', 'notes', this.value)"></td><td><button class="text-red-500 font-bold text-xl hover:text-red-700 transition px-2" onclick="deleteClient('${item.id}')">&times;</button></td>`;
+            });
+        }
+
+        window.viewClientReport = (clientName) => {
+            showView('detailed');
+            filterTypeSelect.value = 'income';
+            loadDetailedViewFilters().then(() => {
+                filterValueSelect.value = clientName;
+                renderDetailedReport();
+            });
+        };
+        
+        // --- Input Formatting ---
+        window.revertToNumber = (element, rawValue) => {
+            element.type = 'number';
+            element.value = rawValue;
+            element.select();
+        };
+
+        window.formatAndUpdate = (element, type, id) => {
+            element.type = 'text';
+            const rawValue = parseFloat(element.value) || 0;
+            element.value = formatCurrency(rawValue);
+            updateEntry(type, id, 'amount', rawValue);
+        };
+
+        // --- CRUD Operations ---
+        window.addEntry = async (type) => {
+            const colRef = getMonthlyCollectionRef(type, currentMonth);
+            if (!colRef) { showError("Please select a month first."); return; }
+            let newDoc = { date: '', amount: 0, notes: '', createdAt: serverTimestamp() };
+            if (type === 'income') {
+                newDoc.clientName = '';
+                newDoc.serviceType = '';
+                newDoc.paymentMethod = paymentMethods[0];
+                newDoc.paymentStatus = paymentStatuses[0];
+            } else { // expenses
+                newDoc.vendor = '';
+                newDoc.category = expenseCategories[0];
+            }
+            try { await addDoc(colRef, newDoc); } catch (e) { console.error("Error adding document: ", e); }
+        };
+        window.updateEntry = async (type, id, field, value) => {
+            const colRef = getMonthlyCollectionRef(type, currentMonth);
+            if (!colRef) return;
+            const docRef = doc(db, colRef.path, id);
+            const payload = {};
+            payload[field] = (field === 'amount') ? Number(value) : value;
+            try { await updateDoc(docRef, payload); } catch (e) { console.error("Error updating document: ", e); }
+        };
+        window.deleteEntry = async (type, id) => {
+            const colRef = getMonthlyCollectionRef(type, currentMonth);
+            if (!colRef) return;
+            try { await deleteDoc(doc(db, colRef.path, id)); } catch (e) { console.error("Error deleting document: ", e); }
+        };
+        
+        window.addClient = async () => {
+            const name = prompt("Enter client name:");
+            if (name) {
+                try { await addDoc(getClientsCollectionRef(), { name, phone: '', email: '', notes: '' }); } catch (e) { console.error("Error adding client:", e); }
+            }
+        };
+        window.updateClient = async (id, field, value) => {
+            const docRef = doc(db, getClientsCollectionRef().path, id);
+            const payload = {};
+            payload[field] = value;
+            try { await updateDoc(docRef, payload); } catch (e) { console.error("Error updating client:", e); }
+        };
+        window.deleteClient = async (id) => {
+            if (confirm("Are you sure you want to delete this client?")) {
+                try { await deleteDoc(doc(db, getClientsCollectionRef().path, id)); } catch (e) { console.error("Error deleting client:", e); }
+            }
+        };
+
+        // --- Calculations ---
+        const formatCurrency = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
+
+        function updateAllTotals() {
+            const incomeTotal = localData.income.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            const expensesTotal = localData.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            const netTotal = incomeTotal - expensesTotal;
+
+            document.getElementById('summary-income').textContent = formatCurrency(incomeTotal);
+            document.getElementById('summary-expenses').textContent = formatCurrency(expensesTotal);
+            document.getElementById('summary-net').textContent = formatCurrency(netTotal);
+
+            const netElement = document.getElementById('summary-net');
+            netElement.classList.remove('text-green-500', 'text-red-500', 'text-blue-500');
+            if (netTotal > 0) netElement.classList.add('text-green-500');
+            else if (netTotal < 0) netElement.classList.add('text-red-500');
+            else netElement.classList.add('text-blue-500');
+        }
+
+        // --- CSV Export ---
+        function exportTableToCsv(tableId, filename) {
+            let csv = [];
+            const table = document.getElementById(tableId);
+            const rows = table.querySelectorAll("tr");
+            
+            for (const row of rows) {
+                const cols = row.querySelectorAll("td, th");
+                const rowData = [];
+                for (const col of cols) {
+                    rowData.push('"' + col.innerText.replace(/"/g, '""') + '"'); // Escape quotes and wrap in quotes
+                }
+                csv.push(rowData.join(","));
+            }
+
+            const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+            const downloadLink = document.createElement("a");
+            downloadLink.download = filename;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+    </script>
+</body>
+</html>
