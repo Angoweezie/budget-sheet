@@ -396,6 +396,7 @@
         function populateYearSelector() {
             const currentYear = new Date().getFullYear();
             const startYear = 2020;
+            yearSelector.innerHTML = '';
             for (let year = currentYear + 1; year >= startYear; year--) {
                 const option = document.createElement('option');
                 option.value = year;
